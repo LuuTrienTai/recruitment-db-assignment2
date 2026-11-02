@@ -1,0 +1,2 @@
+-- TODO: M5: procedure thống kê JOIN, aggregate và các mệnh đề theo đề.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

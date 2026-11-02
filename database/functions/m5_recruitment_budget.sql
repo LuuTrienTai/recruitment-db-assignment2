@@ -1,0 +1,2 @@
+-- TODO: M5: function ngân sách; chốt cách xử lý NULL, tham số và cursor.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

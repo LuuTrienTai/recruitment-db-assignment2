@@ -1,0 +1,2 @@
+-- TODO: M4: trigger nghiệp vụ; chốt điều kiện trùng lịch interview.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

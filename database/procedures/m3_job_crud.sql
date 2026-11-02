@@ -1,0 +1,2 @@
+-- TODO: M3: ba procedure thêm, sửa, xóa job.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

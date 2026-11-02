@@ -1,0 +1,2 @@
+-- TODO: M2: kiểm tra schema và kết nối sau khởi tạo.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

@@ -1,0 +1,2 @@
+-- TODO: M4: trigger dẫn xuất; phối hợp M2 chốt cột lưu và cách khởi tạo.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

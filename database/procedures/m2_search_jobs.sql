@@ -1,0 +1,2 @@
+-- TODO: M2: sp_search_job_postings.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

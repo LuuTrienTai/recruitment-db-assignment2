@@ -1,0 +1,2 @@
+-- TODO: M3: seed có ý nghĩa cho mọi bảng; chốt thứ tự nạp trước.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

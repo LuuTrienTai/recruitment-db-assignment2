@@ -1,0 +1,2 @@
+-- TODO: M1: function tỷ lệ accepted; chốt mẫu số, khoảng thời gian, NULL và cursor.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

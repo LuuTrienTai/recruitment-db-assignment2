@@ -1,0 +1,2 @@
+-- TODO: M2: schema Assignment 1 cuối cùng; chưa triển khai.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.

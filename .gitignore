@@ -1,0 +1,17 @@
+# Local configuration
+.env
+.env.*
+!.env.example
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Frontend
+node_modules/
+dist/
+# Local data and OS files
+mysql-data/
+*.log
+.DS_Store
+Thumbs.db

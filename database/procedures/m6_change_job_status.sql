@@ -1,0 +1,2 @@
+-- TODO: M6: procedure chuyển trạng thái, dùng chung quy tắc với CRUD.
+-- Đây là file giữ chỗ, chưa có SQL thực thi.
