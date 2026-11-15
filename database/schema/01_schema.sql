@@ -32,12 +32,14 @@ CREATE TABLE user_account(
     last_name TEXT NOT NULL,
     gender VARCHAR(25) NOT NULL,
     email_address VARCHAR(255) NOT NULL UNIQUE,
-    hashed_password VARCHAR(255) NOT NULL,
+    hashed_password VARCHAR(255) NULL,
     phone_number VARCHAR(25) NOT NULL,
     registeration_method VARCHAR(255) NOT NULL,
     account_status VARCHAR(10) NOT NULL,
     created_date DATE NOT NULL DEFAULT (CURRENT_DATE),
     CONSTRAINT pk_user PRIMARY KEY (accountID),
+    CONSTRAINT chk_user_email CHECK (email_address LIKE '%_@_%._%'),
+    CONSTRAINT chk_user_phone CHECK (phone_number REGEXP '^[0-9+]{9,15}$'),
     CONSTRAINT registeration_method_select CHECK (registeration_method IN ('email', 'Google', 'Facebook', 'LinkedIn')),
     CONSTRAINT chk_user_status CHECK (account_status IN ('unverified', 'active', 'locked'))
 );
@@ -46,9 +48,10 @@ CREATE TABLE company(
     ID INT UNSIGNED NOT NULL AUTO_INCREMENT,
     sector VARCHAR(255) NOT NULL,
     address TEXT NOT NULL,
-    name VARCHAR(255),
-    type VARCHAR(25),
-    CONSTRAINT pk_company PRIMARY KEY (ID)
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(25) NOT NULL,
+    CONSTRAINT pk_company PRIMARY KEY (ID),
+    CONSTRAINT chk_company_type CHECK (type IN ('normal', 'Pro'))
 );
 
 CREATE TABLE job_category(
@@ -97,7 +100,7 @@ CREATE TABLE administrator(
     CONSTRAINT fk_admin FOREIGN KEY (adminID)
         REFERENCES user_account(accountID)
         ON DELETE CASCADE,
-    CONSTRAINT chk_admin_level CHECK (administrative_access_level BETWEEN 1 AND 99)
+    CONSTRAINT chk_admin_level CHECK (administrative_access_level IN ('reviewer', 'manager', 'super admin'))
 );
 
 
@@ -114,7 +117,7 @@ CREATE TABLE cv(
         REFERENCES candidate(candidateID)
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT chk_cv_format CHECK (format IN ('pdf')),
-    CONSTRAINT chk_cv_size CHECK (size > 0 AND size < 5242880)
+    CONSTRAINT chk_cv_size CHECK (size > 0 AND size <= 5242880)
 );
 
 
@@ -274,6 +277,7 @@ CREATE TABLE job_posting(
         REFERENCES recruitment_campaign(ID)
         ON DELETE RESTRICT,
     CONSTRAINT chk_job_posting_status CHECK (status IN ('open','closed')),
+    CONSTRAINT chk_apply_method CHECK (apply_method IN ('on-site application through the Apply button', 'external application')),
     CONSTRAINT chk_job_posting_min_salary CHECK (min_salary IS NULL OR min_salary >= 0),
     CONSTRAINT chk_job_posting_salary CHECK (max_salary >= min_salary),
     CONSTRAINT chk_job_posting_deadline CHECK (apply_deadline >= posted_date)
@@ -324,7 +328,9 @@ CREATE TABLE application(
     CONSTRAINT fk_application_job FOREIGN KEY (job_postingID)
         REFERENCES job_posting(ID)
         ON DELETE RESTRICT,
-    CONSTRAINT chk_application_status CHECK (status IN ('submitted','viewed','interviewing','accepted','rejected'))
+    CONSTRAINT chk_application_status CHECK (status IN ('submitted','viewed','interviewing','accepted','rejected')),
+    CONSTRAINT chk_application_email CHECK (email LIKE '%_@_%._%'),
+    CONSTRAINT chk_application_phone CHECK (phone_number REGEXP '^[0-9+]{9,15}$')
 );
 
 CREATE TABLE interview(
