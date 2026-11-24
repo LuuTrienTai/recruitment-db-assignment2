@@ -9,6 +9,10 @@
 --   503: 205, 2026-03-15, 360,000,000     504: 207, 2026-04-18, 240,000,000
 --   505: 209, 2026-05-20, NULL            506: 210, 2026-06-22, 0
 --   Employer 202, 204, 206, 208: không khai báo nhu cầu nào.
+--
+-- Nhu cầu bổ sung tuân thủ SC09 (docs/business_rules.md): số người cần tuyển
+-- >= 1, ngân sách NULL hoặc >= 0, ngày hoàn thành NULL hoặc sau ngày khai báo;
+-- công ty trong declares_recruitment_need đúng là công ty của employer.
 -- =============================================================================
 
 USE recruitment_db;
@@ -21,7 +25,7 @@ INSERT INTO recruitment_need
 VALUES
 (511, '2026-07-01', 'Site Reliability Engineer',    'Senior',      1, NULL,         NULL,      'Engineering department', NULL),
 (512, '2026-08-15', 'Backend Engineering Intern',   'Intern',      2, NULL,         0,         'Early-career program',   NULL),
-(513, '2026-09-30', 'Platform Engineering Manager', 'Manager',     1, '2027-03-31', 150000000, 'Engineering department', NULL),
+(513, '2026-09-30', 'Platform Engineering Lead',    'Senior',    1, '2027-03-31', 150000000, 'Engineering department', NULL),
 (514, '2026-10-05', 'Learning Support Officer',     'Entry-level', 3, NULL,         NULL,      'Annual operating budget', NULL),
 (515, '2026-03-01', 'Curriculum Designer',          'Mid-level',   1, '2026-09-30', 120000000, 'Content program',        NULL);
 
@@ -36,25 +40,33 @@ INSERT INTO declares_recruitment_need (need_id, employer_id, company_id) VALUES
 --                 employer 209 có: 505 (NULL), 514 (NULL)
 --                 employer 210 có: 515 (120tr), 506 (0)
 
-SELECT 'A1 không có nhu cầu nào -> 0'                     AS test_case, fn_employer_recruitment_budget(202, NULL, NULL)                 AS result
-UNION ALL
-SELECT 'A2 một nhu cầu, budget NULL -> NULL',                        fn_employer_recruitment_budget(209, '2026-05-01', '2026-05-31')
-UNION ALL
-SELECT 'A3 nhiều nhu cầu, đều NULL -> NULL',                         fn_employer_recruitment_budget(209, NULL, NULL)
-UNION ALL
-SELECT 'A4 NULL + 0 + dương -> 1050000000.00',                       fn_employer_recruitment_budget(201, '2026-01-01', '2026-12-31')
-UNION ALL
-SELECT 'A5 chỉ budget 0 -> 0.00',                                    fn_employer_recruitment_budget(201, '2026-08-01', '2026-08-31')
-UNION ALL
-SELECT 'A6 chỉ cận dưới 2026-07-01 -> 150000000.00',                 fn_employer_recruitment_budget(201, '2026-07-01', NULL)
-UNION ALL
-SELECT 'A7 chỉ cận trên 2026-06-30 -> 900000000.00',                 fn_employer_recruitment_budget(201, NULL, '2026-06-30')
-UNION ALL
-SELECT 'A8 có nhu cầu khác kỳ, không có trong kỳ -> 0',              fn_employer_recruitment_budget(201, '2026-02-01', '2026-06-30')
-UNION ALL
-SELECT 'A9 biên ngày, from = to = declared_date -> 150000000.00',    fn_employer_recruitment_budget(201, '2026-09-30', '2026-09-30')
-UNION ALL
-SELECT 'A10 dương + 0 -> 120000000.00',                              fn_employer_recruitment_budget(210, NULL, NULL);
+-- A1..A10: mỗi dòng in kết quả kỳ vọng, kết quả thực tế và PASS/FAIL.
+-- So sánh bằng <=> để NULL = NULL được tính là khớp. Tất cả phải là PASS.
+SELECT t.test_case,
+       t.expected,
+       t.actual,
+       IF(t.actual <=> t.expected, 'PASS', 'FAIL') AS verdict
+FROM (
+    SELECT 'A1 employer không khai báo nhu cầu nào'          AS test_case, CAST(0 AS DECIMAL(18,2)) AS expected, fn_employer_recruitment_budget(202, NULL, NULL) AS actual
+    UNION ALL
+    SELECT 'A2 một nhu cầu, ngân sách NULL',                   NULL,          fn_employer_recruitment_budget(209, '2026-05-01', '2026-05-31')
+    UNION ALL
+    SELECT 'A3 nhiều nhu cầu, tất cả ngân sách NULL',          NULL,          fn_employer_recruitment_budget(209, NULL, NULL)
+    UNION ALL
+    SELECT 'A4 NULL + 0 + số dương (bỏ qua NULL)',             1050000000.00, fn_employer_recruitment_budget(201, '2026-01-01', '2026-12-31')
+    UNION ALL
+    SELECT 'A5 chỉ có ngân sách bằng 0',                       0.00,          fn_employer_recruitment_budget(201, '2026-08-01', '2026-08-31')
+    UNION ALL
+    SELECT 'A6 chỉ có cận dưới 2026-07-01',                    150000000.00,  fn_employer_recruitment_budget(201, '2026-07-01', NULL)
+    UNION ALL
+    SELECT 'A7 chỉ có cận trên 2026-06-30',                    900000000.00,  fn_employer_recruitment_budget(201, NULL, '2026-06-30')
+    UNION ALL
+    SELECT 'A8 có nhu cầu nhưng nằm ngoài kỳ',                 0.00,          fn_employer_recruitment_budget(201, '2026-02-01', '2026-06-30')
+    UNION ALL
+    SELECT 'A9 from = to = declared_date (biên tính vào kỳ)',  150000000.00,  fn_employer_recruitment_budget(201, '2026-09-30', '2026-09-30')
+    UNION ALL
+    SELECT 'A10 số dương + 0',                                 120000000.00,  fn_employer_recruitment_budget(210, NULL, NULL)
+) AS t;
 
 -- A11. Demo cho giao diện 3.3: ngân sách năm 2026 của từng employer
 --   201: 1050000000.00   202: 0   203: 480000000.00   204: 0   205: 360000000.00

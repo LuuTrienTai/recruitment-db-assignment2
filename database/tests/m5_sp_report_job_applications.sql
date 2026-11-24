@@ -3,14 +3,21 @@
 -- =============================================================================
 -- Điều kiện: đã chạy schema, seed, procedures/m5_application_report.sql.
 -- Dữ liệu bổ sung nằm trong transaction và bị ROLLBACK ở cuối PHẦN A,
--- seed chung không thay đổi. Phần B (case lỗi) chạy từng câu một.
+-- seed chung không thay đổi. Nếu đã cài trigger M4 (DA01), application_count
+-- được tăng trong transaction và cũng được ROLLBACK hoàn lại.
+-- Phần B (case lỗi) chạy từng câu một.
 --
--- Hồ sơ trong seed (job: ứng viên/cv, thời điểm, trạng thái):
---   701 (co 401): 801 10-22 viewed, 802 10-30 interviewing
---   702 (co 402): 803 10-27 viewed
---   704 (co 404): 804 11-04 rejected, 806 11-06 accepted
---   705 (co 405): 805 11-08 submitted
+-- Hồ sơ trong seed (tin, công ty: mã hồ sơ, ngày nộp, trạng thái):
+--   701, công ty 401: 801 10-22 viewed, 802 10-30 interviewing
+--   702, công ty 402: 803 10-27 viewed
+--   704, công ty 404: 804 11-04 rejected, 806 11-06 accepted
+--   705, công ty 405: 805 11-08 submitted
 --   703, 706, 707: chưa có hồ sơ
+--
+-- Hồ sơ bổ sung tuân thủ SC06/SC07 (docs/business_rules.md): nộp vào tin đang
+-- mở, nộp trực tiếp (on_site), trước hạn; địa điểm mong muốn thuộc work_location
+-- của tin; đồng ý điều khoản dữ liệu cá nhân; ứng viên có tài khoản active;
+-- mỗi ứng viên nộp không quá 3 lần vào cùng một tin.
 -- =============================================================================
 
 USE recruitment_db;
@@ -28,7 +35,7 @@ VALUES
 -- 00:00:00 ngày sau kỳ -> NGOÀI kỳ
 (813, 104, 1, 701, '2026-12-01 00:00:00', 'Duc Pham', 'duc.pham@example.test', '0901000104', 'Da Nang', FALSE, TRUE, 'submitted'),
 -- 706 có đúng 1 hồ sơ
-(814, 107, 1, 706, '2026-11-15 10:00:00', 'My Tran', 'my.tran@example.test', '0901000107', 'Ho Chi Minh City', TRUE, TRUE, 'viewed'),
+(814, 102, 1, 706, '2026-11-15 10:00:00', 'Binh Tran', 'binh.tran@example.test', '0901000102', 'Ho Chi Minh City', TRUE, TRUE, 'viewed'),
 -- 23:59:59 ngày trước kỳ -> NGOÀI kỳ; 702 chỉ có hồ sơ ngoài kỳ
 (815, 103, 2, 702, '2026-10-31 23:59:59', 'Chi Le', 'chi.le@example.test', '0901000103', 'Hanoi', FALSE, TRUE, 'rejected'),
 (816, 105, 2, 705, '2026-11-20 08:00:00', 'Ha Vo', 'ha.vo@example.test', '0901000105', 'Da Nang', TRUE, TRUE, 'interviewing'),
