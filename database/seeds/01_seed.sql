@@ -1,6 +1,8 @@
 
 -- SHA2 password values are demo-only and are not suitable for real authentication.
 
+USE recruitment_db;
+
 INSERT INTO company (company_id, sector, address, name, company_type) VALUES
 (401, 'Software and IT Services', '1 Le Duan, District 1, Ho Chi Minh City', 'Lotus Digital', 'pro'),
 (402, 'E-commerce', '12 Nguyen Hue, District 1, Ho Chi Minh City', 'Mekong Commerce', 'normal'),
@@ -181,12 +183,12 @@ INSERT INTO candidate_follow_company (candidate_id, company_id, followed_date) V
 INSERT INTO recruitment_need
 (need_id, declared_date, professional_position, job_level, number_employee_required, expected_completion_date, budget, budget_source, consultation)
 VALUES
-(501, '2026-01-10', 'Backend Platform Engineer', 'Senior', 3, '2026-12-20', 900000000, 'Engineering department', TRUE),
-(502, '2026-02-12', 'Frontend Product Engineer', 'Mid-level', 2, '2026-12-25', 480000000, 'Product department', FALSE),
-(503, '2026-03-15', 'Data Analyst', 'Mid-level', 2, NULL, 360000000, 'Risk analytics team', TRUE),
-(504, '2026-04-18', 'Health Data Analyst', 'Junior', 1, '2027-01-31', 240000000, 'Digital health program', FALSE),
-(505, '2026-05-20', 'Clinical Operations Coordinator', 'Entry-level', 4, NULL, NULL, 'Annual operating budget', TRUE),
-(506, '2026-06-22', 'Software Engineering Intern', 'Intern', 2, NULL, 0, 'Early-career program', FALSE);
+(501, '2026-01-10', 'Backend Platform Engineer', 'Senior', 3, '2026-12-20', 900000000, 'Engineering department', 'Employment contract terms and recruitment service fees'),
+(502, '2026-02-12', 'Frontend Product Engineer', 'Mid-level', 2, '2026-12-25', 480000000, 'Product department', NULL),
+(503, '2026-03-15', 'Data Analyst', 'Mid-level', 2, NULL, 360000000, 'Risk analytics team', 'Budget consultation for data analyst recruitment'),
+(504, '2026-04-18', 'Health Data Analyst', 'Junior', 1, '2027-01-31', 240000000, 'Digital health program', NULL),
+(505, '2026-05-20', 'Clinical Operations Coordinator', 'Entry-level', 4, NULL, NULL, 'Annual operating budget', 'Contract terms for multiple hires'),
+(506, '2026-06-22', 'Software Engineering Intern', 'Intern', 2, NULL, 0, 'Early-career program', NULL);
 
 INSERT INTO declares_recruitment_need (need_id, employer_id, company_id) VALUES
 (501, 201, 401),
@@ -264,7 +266,8 @@ SET application_count = (
     SELECT COUNT(*)
     FROM application AS a
     WHERE a.job_posting_id = jp.job_posting_id
-);
+)
+WHERE jp.job_posting_id IS NOT NULL;
 
 SELECT 'user_account' AS table_name, COUNT(*) AS row_count FROM user_account
 UNION ALL SELECT 'company', COUNT(*) FROM company
