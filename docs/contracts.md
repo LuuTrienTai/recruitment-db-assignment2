@@ -51,13 +51,13 @@ M2 + M6 đối chiếu cách gọi, tên trường, định dạng ngày, NULL, 
 
 - File: `database/procedures/m5_application_report.sql`; test: `database/tests/m5_sp_report_job_applications.sql`.
 - Mục đích: thống kê số hồ sơ mỗi tin tuyển dụng nhận được trong một khoảng thời gian nộp hồ sơ, kèm phân bố theo trạng thái. Dùng cho màn hình thống kê của nhà tuyển dụng (mục 3.3).
-- Gọi: `CALL sp_report_job_applications(p_from_date DATE, p_to_date DATE, p_company_id INT UNSIGNED, p_min_applications INT)`.
+- Gọi: `CALL sp_report_job_applications(p_from_date DATE, p_to_date DATE, p_company_id BIGINT, p_min_applications INT)`.
 
 | Tham số | Kiểu | Cho phép NULL? | Ý nghĩa |
 |---|---|---|---|
 | `p_from_date` | `DATE` | Có — không giới hạn đầu dưới | Chỉ đếm hồ sơ có `application.submission_time >= p_from_date` (`00:00:00`) |
-| `p_to_date` | `DATE` | Có — không giới hạn đầu trên | Chỉ đếm hồ sơ có `submission_time < p_to_date + 1 ngày` (lấy trọn ngày cuối) |
-| `p_company_id` | `INT UNSIGNED` | Có — mọi công ty | Mệnh đề `WHERE`: chỉ lấy tin của công ty này |
+| `p_to_date` | `DATE` | Có — không giới hạn đầu trên | Chỉ đếm hồ sơ có `DATE(submission_time) <= p_to_date` (lấy trọn ngày cuối, đúng cả với `9999-12-31`) |
+| `p_company_id` | `BIGINT` | Có — mọi công ty | Mệnh đề `WHERE`: chỉ lấy tin của công ty này. `BIGINT` có dấu để `0`/số âm nhận thông báo "không tồn tại" thay vì lỗi tràn kiểu |
 | `p_min_applications` | `INT` | Không — báo lỗi | Mệnh đề `HAVING COUNT(a.application_id) >= p_min_applications`; `0` = hiện cả tin chưa có hồ sơ nào trong kỳ |
 
 - Kết quả: mỗi tin một dòng, sắp xếp `total_applications DESC, job_posting_id ASC`.
@@ -67,7 +67,7 @@ M2 + M6 đối chiếu cách gọi, tên trường, định dạng ngày, NULL, 
 | `job_posting_id`, `title`, `job_status`, `posted_date`, `application_deadline` | Thông tin tin tuyển dụng |
 | `company_id`, `company_name` | Công ty đăng tin |
 | `total_applications` | Số hồ sơ nộp trong kỳ (`0` nếu không có) |
-| `submitted_count`, `viewed_count`, `interviewing_count`, `accepted_count`, `rejected_count` | Số hồ sơ trong kỳ theo từng trạng thái; cộng lại bằng `total_applications` |
+| `submitted_count`, `viewed_count`, `interviewing_count`, `accepted_count`, `rejected_count` | Số hồ sơ trong kỳ theo từng trạng thái; cộng lại bằng `total_applications`. Cả 6 cột đếm đều là số nguyên (`COUNT`) |
 | `first_submission`, `last_submission` | Thời điểm nộp sớm nhất / muộn nhất trong kỳ; `NULL` khi tin không có hồ sơ |
 
 - Quy tắc nghiệp vụ & kỹ thuật:
@@ -78,8 +78,11 @@ M2 + M6 đối chiếu cách gọi, tên trường, định dạng ngày, NULL, 
   - `p_min_applications` là `NULL`: `'Số hồ sơ tối thiểu (p_min_applications) là bắt buộc; nhập 0 để hiển thị cả tin chưa có hồ sơ.'`
   - `p_min_applications < 0`: `'Số hồ sơ tối thiểu (p_min_applications) không được âm.'`
   - `p_from_date > p_to_date` (khi cả hai khác `NULL`): `'Ngày bắt đầu (p_from_date) phải nhỏ hơn hoặc bằng ngày kết thúc (p_to_date).'`
-  - `p_company_id` không tồn tại: `'Công ty (p_company_id) không tồn tại.'`
-- Lưu ý tích hợp Backend (M2) / Frontend (M6): ô "số hồ sơ tối thiểu" nên có giá trị mặc định `0`; ô ngày để trống thì gửi `NULL`.
+  - `p_company_id` không tồn tại (kể cả `0`, số âm): `'Công ty (p_company_id) không tồn tại.'`
+  - Ngày sai định dạng (vd. `'2026-13-01'`) bị MySQL chặn trước khi vào procedure: lỗi `1292 Incorrect date value … for column 'p_from_date'`. UI dùng date picker / backend gửi kiểu `date` thì không xảy ra.
+- Lưu ý tích hợp Backend (M2) / Frontend (M6):
+  - Ô "số hồ sơ tối thiểu" nên có giá trị mặc định `0`; ô ngày để trống thì gửi `NULL`.
+  - Với `mysql-connector-python`: `cursor.callproc(...)` rồi đọc `cursor.stored_results()`; lỗi nghiệp vụ là `mysql.connector.Error` có `errno = 1644`, `sqlstate = '45000'`, `msg` = thông báo tiếng Việt ở trên. Ở bản 26.x `stored_results()` báo DeprecationWarning (sẽ thành property) nhưng vẫn chạy.
 - Ví dụ gọi trên dữ liệu seed gốc:
   - `CALL sp_report_job_applications('2026-10-01', '2026-11-30', NULL, 1);` → `701` (2), `704` (2), `702` (1), `705` (1)
   - `CALL sp_report_job_applications(NULL, NULL, 401, 0);` → `701` (2), `706` (0), `707` (0)
@@ -88,11 +91,11 @@ M2 + M6 đối chiếu cách gọi, tên trường, định dạng ngày, NULL, 
 
 - File: `database/functions/m5_recruitment_budget.sql`; test: `database/tests/m5_fn_employer_recruitment_budget.sql`.
 - Mục đích: tính tổng ngân sách của các nhu cầu tuyển dụng (`recruitment_need`) mà một employer **khai báo** (`declares_recruitment_need.employer_id`) có `declared_date` trong khoảng thời gian. Đây là ngân sách đã cam kết theo ngày khai báo, không phải số tiền chi tiêu trong kỳ.
-- Gọi: `SELECT fn_employer_recruitment_budget(p_employer_id INT UNSIGNED, p_from_date DATE, p_to_date DATE)` → `DECIMAL(18,2)` hoặc `NULL`.
+- Gọi: `SELECT fn_employer_recruitment_budget(p_employer_id BIGINT, p_from_date DATE, p_to_date DATE)` → `DECIMAL(18,2)` (Python: `Decimal`) hoặc `NULL` (Python: `None`).
 
 | Tham số | Kiểu | Cho phép NULL? | Ý nghĩa |
 |---|---|---|---|
-| `p_employer_id` | `INT UNSIGNED` | Không — báo lỗi | Mã employer (phải tồn tại trong bảng `employer`) |
+| `p_employer_id` | `BIGINT` | Không — báo lỗi | Mã employer (phải tồn tại trong bảng `employer`; `0`/số âm báo "không tồn tại") |
 | `p_from_date` | `DATE` | Có — không giới hạn đầu dưới | Lọc `recruitment_need.declared_date >= p_from_date` |
 | `p_to_date` | `DATE` | Có — không giới hạn đầu trên | Lọc `recruitment_need.declared_date <= p_to_date` |
 

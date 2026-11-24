@@ -6,7 +6,7 @@
 -- Câu hỏi nghiệp vụ: "Trong khoảng thời gian [from, to], mỗi tin tuyển dụng nhận
 -- được bao nhiêu hồ sơ, phân bố theo trạng thái ra sao?"
 --
--- Quyết định thiết kế (docs/decisions.md, D-M5-04..07):
+-- Quyết định thiết kế (docs/decisions.md, D-M5-04..08):
 --   * Lọc thời gian theo application.submission_time (thời điểm nộp hồ sơ),
 --     không theo job_posting.posted_date — tránh trùng với sp_search_job_postings.
 --   * LEFT JOIN application, điều kiện thời gian đặt trong ON: tin không có hồ sơ
@@ -14,22 +14,28 @@
 --     Đặt điều kiện application trong WHERE sẽ biến LEFT JOIN thành INNER JOIN.
 --   * Đếm bằng COUNT(a.application_id) từ bảng application; KHÔNG đọc cột dẫn xuất
 --     job_posting.application_count (do trigger M4 duy trì).
---   * submission_time là DATETIME, tham số là DATE ⇒ cận trên dùng
---     submission_time < to_date + 1 ngày để lấy trọn ngày cuối.
+--   * submission_time là DATETIME, tham số là DATE ⇒ cận dưới
+--     submission_time >= from_date (00:00:00), cận trên DATE(submission_time) <= to_date
+--     để lấy trọn ngày cuối. Không dùng submission_time < to_date + 1 ngày vì
+--     DATE_ADD('9999-12-31', INTERVAL 1 DAY) trả NULL và làm mất mọi hồ sơ.
 --
 -- Tham số:
---   p_from_date        DATE          NULL = không giới hạn ngày bắt đầu
---   p_to_date          DATE          NULL = không giới hạn ngày kết thúc
---   p_company_id       INT UNSIGNED  NULL = mọi công ty
---   p_min_applications INT           bắt buộc, >= 0 (điều kiện HAVING)
+--   p_from_date        DATE    NULL = không giới hạn ngày bắt đầu
+--   p_to_date          DATE    NULL = không giới hạn ngày kết thúc
+--   p_company_id       BIGINT  NULL = mọi công ty; BIGINT có dấu để số âm nhận
+--                              thông báo "không tồn tại" thay vì lỗi tràn kiểu
+--   p_min_applications INT     bắt buộc, >= 0 (điều kiện HAVING)
 --
 -- Lỗi (SQLSTATE 45000):
 --   - p_min_applications NULL hoặc âm
 --   - p_from_date > p_to_date (khi cả hai khác NULL)
---   - p_company_id không tồn tại
+--   - p_company_id không tồn tại (kể cả 0 và số âm)
 -- =============================================================================
 
 USE recruitment_db;
+-- File chứa tiếng Việt (thông báo lỗi, dữ liệu): đặt bảng mã cho kết nối để client
+-- nào cũng lưu đúng, kể cả client mặc định latin1 (vd. mysql trong container).
+SET NAMES utf8mb4;
 
 DROP PROCEDURE IF EXISTS sp_report_job_applications;
 
@@ -38,7 +44,7 @@ DELIMITER $$
 CREATE PROCEDURE sp_report_job_applications(
     IN p_from_date        DATE,
     IN p_to_date          DATE,
-    IN p_company_id       INT UNSIGNED,
+    IN p_company_id       BIGINT,
     IN p_min_applications INT
 )
 BEGIN
@@ -74,11 +80,11 @@ BEGIN
         jp.posted_date,
         jp.application_deadline,
         COUNT(a.application_id)                  AS total_applications,
-        SUM(CASE WHEN a.application_status = 'submitted'    THEN 1 ELSE 0 END) AS submitted_count,
-        SUM(CASE WHEN a.application_status = 'viewed'       THEN 1 ELSE 0 END) AS viewed_count,
-        SUM(CASE WHEN a.application_status = 'interviewing' THEN 1 ELSE 0 END) AS interviewing_count,
-        SUM(CASE WHEN a.application_status = 'accepted'     THEN 1 ELSE 0 END) AS accepted_count,
-        SUM(CASE WHEN a.application_status = 'rejected'     THEN 1 ELSE 0 END) AS rejected_count,
+        COUNT(CASE WHEN a.application_status = 'submitted' THEN 1 END) AS submitted_count,
+        COUNT(CASE WHEN a.application_status = 'viewed' THEN 1 END) AS viewed_count,
+        COUNT(CASE WHEN a.application_status = 'interviewing' THEN 1 END) AS interviewing_count,
+        COUNT(CASE WHEN a.application_status = 'accepted' THEN 1 END) AS accepted_count,
+        COUNT(CASE WHEN a.application_status = 'rejected' THEN 1 END) AS rejected_count,
         MIN(a.submission_time)                   AS first_submission,
         MAX(a.submission_time)                   AS last_submission
     FROM job_posting AS jp
@@ -87,7 +93,7 @@ BEGIN
     LEFT JOIN application AS a
         ON  a.job_posting_id = jp.job_posting_id
         AND (p_from_date IS NULL OR a.submission_time >= p_from_date)
-        AND (p_to_date   IS NULL OR a.submission_time <  DATE_ADD(p_to_date, INTERVAL 1 DAY))
+        AND (p_to_date   IS NULL OR DATE(a.submission_time) <= p_to_date)
     WHERE (p_company_id IS NULL OR jp.company_id = p_company_id)
     GROUP BY
         jp.job_posting_id,

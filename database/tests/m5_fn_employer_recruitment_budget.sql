@@ -16,6 +16,9 @@
 -- =============================================================================
 
 USE recruitment_db;
+-- File chứa tiếng Việt (thông báo lỗi, dữ liệu): đặt bảng mã cho kết nối để client
+-- nào cũng lưu đúng, kể cả client mặc định latin1 (vd. mysql trong container).
+SET NAMES utf8mb4;
 
 -- =============================================================== PHẦN A
 START TRANSACTION;
@@ -40,7 +43,7 @@ INSERT INTO declares_recruitment_need (need_id, employer_id, company_id) VALUES
 --                 employer 209 có: 505 (NULL), 514 (NULL)
 --                 employer 210 có: 515 (120tr), 506 (0)
 
--- A1..A10: mỗi dòng in kết quả kỳ vọng, kết quả thực tế và PASS/FAIL.
+-- A1..A11: mỗi dòng in kết quả kỳ vọng, kết quả thực tế và PASS/FAIL.
 -- So sánh bằng <=> để NULL = NULL được tính là khớp. Tất cả phải là PASS.
 SELECT t.test_case,
        t.expected,
@@ -66,9 +69,11 @@ FROM (
     SELECT 'A9 from = to = declared_date (biên tính vào kỳ)',  150000000.00,  fn_employer_recruitment_budget(201, '2026-09-30', '2026-09-30')
     UNION ALL
     SELECT 'A10 số dương + 0',                                 120000000.00,  fn_employer_recruitment_budget(210, NULL, NULL)
+    UNION ALL
+    SELECT 'A11 biên 1000-01-01 .. 9999-12-31 = mọi nhu cầu',  1050000000.00, fn_employer_recruitment_budget(201, '1000-01-01', '9999-12-31')
 ) AS t;
 
--- A11. Demo cho giao diện 3.3: ngân sách năm 2026 của từng employer
+-- A12. Demo cho giao diện 3.3: ngân sách năm 2026 của từng employer
 --   201: 1050000000.00   202: 0   203: 480000000.00   204: 0   205: 360000000.00
 --   206: 0               207: 240000000.00   208: 0   209: NULL   210: 120000000.00
 SELECT e.employer_id,
@@ -96,3 +101,6 @@ SELECT fn_employer_recruitment_budget(101, NULL, NULL);
 
 -- B4. 'Ngày bắt đầu (p_from_date) phải nhỏ hơn hoặc bằng ngày kết thúc (p_to_date).'
 SELECT fn_employer_recruitment_budget(201, '2026-12-31', '2026-01-01');
+
+-- B5. 'Employer (p_employer_id) không tồn tại.' — mã âm
+SELECT fn_employer_recruitment_budget(-5, NULL, NULL);

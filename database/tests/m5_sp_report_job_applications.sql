@@ -21,6 +21,9 @@
 -- =============================================================================
 
 USE recruitment_db;
+-- File chứa tiếng Việt (thông báo lỗi, dữ liệu): đặt bảng mã cho kết nối để client
+-- nào cũng lưu đúng, kể cả client mặc định latin1 (vd. mysql trong container).
+SET NAMES utf8mb4;
 
 -- =============================================================== PHẦN A
 START TRANSACTION;
@@ -30,7 +33,7 @@ INSERT INTO application
 VALUES
 -- đúng 00:00:00 ngày bắt đầu kỳ tháng 11 -> TRONG kỳ
 (811, 102, 2, 701, '2026-11-01 00:00:00', 'Binh Tran', 'binh.tran@example.test', '0901000102', 'Ho Chi Minh City', FALSE, TRUE, 'submitted'),
--- 23:59:59 ngày cuối kỳ -> TRONG kỳ (kiểm tra cận trên < to + 1 ngày)
+-- 23:59:59 ngày cuối kỳ -> TRONG kỳ (cận trên lấy trọn ngày cuối)
 (812, 103, 1, 701, '2026-11-30 23:59:59', 'Chi Le', 'chi.le@example.test', '0901000103', 'Ho Chi Minh City', TRUE, TRUE, 'accepted'),
 -- 00:00:00 ngày sau kỳ -> NGOÀI kỳ
 (813, 104, 1, 701, '2026-12-01 00:00:00', 'Duc Pham', 'duc.pham@example.test', '0901000104', 'Da Nang', FALSE, TRUE, 'submitted'),
@@ -71,6 +74,11 @@ CALL sp_report_job_applications('2026-11-15', NULL, NULL, 1);
 -- A7. Một ngày duy nhất 2026-11-30 -> 701(1: 812)
 CALL sp_report_job_applications('2026-11-30', '2026-11-30', NULL, 1);
 
+-- A8. Ngày lớn/nhỏ nhất của MySQL làm biên, min = 1 -> giống "không giới hạn":
+--   701: 5, 704: 3, 702: 2, 705: 2, 706: 1
+--   (kiểm tra cận trên không bị tràn: DATE_ADD('9999-12-31', 1 ngày) = NULL)
+CALL sp_report_job_applications('1000-01-01', '9999-12-31', NULL, 1);
+
 ROLLBACK;
 
 -- =============================================================== PHẦN B
@@ -88,3 +96,6 @@ CALL sp_report_job_applications('2026-12-01', '2026-11-01', NULL, 0);
 
 -- B4. 'Công ty (p_company_id) không tồn tại.'
 CALL sp_report_job_applications(NULL, NULL, 999, 0);
+
+-- B5. 'Công ty (p_company_id) không tồn tại.' — mã âm
+CALL sp_report_job_applications(NULL, NULL, -1, 0);

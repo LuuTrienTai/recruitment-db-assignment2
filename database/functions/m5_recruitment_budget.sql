@@ -7,7 +7,7 @@
 -- (declares_recruitment_need.employer_id) có declared_date nằm trong [from, to].
 -- Đây KHÔNG phải ngân sách chi tiêu trong kỳ: budget không phân bổ theo tháng,
 -- nên mỗi nhu cầu được xếp vào đúng một kỳ theo ngày khai báo, tránh cộng trùng
--- khi cộng nhiều kỳ liên tiếp. (docs/decisions.md, D-M5-01..03)
+-- khi cộng nhiều kỳ liên tiếp. (docs/decisions.md, D-M5-01..03, D-M5-08)
 --
 -- Chính sách NULL (budget NULL = chưa xác định, 0 = ngân sách thật bằng 0):
 --   Không có nhu cầu nào trong kỳ             -> 0
@@ -15,12 +15,13 @@
 --   Có nhu cầu nhưng mọi budget đều NULL      -> NULL (chưa xác định)
 --
 -- Tham số:
---   p_employer_id  INT UNSIGNED  bắt buộc, phải là employer tồn tại
---   p_from_date    DATE          NULL = không giới hạn ngày bắt đầu
---   p_to_date      DATE          NULL = không giới hạn ngày kết thúc
+--   p_employer_id  BIGINT  bắt buộc, phải là employer tồn tại; BIGINT có dấu để số
+--                          âm nhận thông báo "không tồn tại" thay vì lỗi tràn kiểu
+--   p_from_date    DATE    NULL = không giới hạn ngày bắt đầu
+--   p_to_date      DATE    NULL = không giới hạn ngày kết thúc
 --
 -- Lỗi (SQLSTATE 45000):
---   - p_employer_id NULL hoặc không phải employer
+--   - p_employer_id NULL hoặc không phải employer (kể cả 0 và số âm)
 --   - p_from_date > p_to_date (khi cả hai khác NULL)
 --
 -- Cursor + LOOP + IF theo yêu cầu 2.4: duyệt từng nhu cầu, IF tách budget NULL
@@ -28,13 +29,16 @@
 -- =============================================================================
 
 USE recruitment_db;
+-- File chứa tiếng Việt (thông báo lỗi, dữ liệu): đặt bảng mã cho kết nối để client
+-- nào cũng lưu đúng, kể cả client mặc định latin1 (vd. mysql trong container).
+SET NAMES utf8mb4;
 
 DROP FUNCTION IF EXISTS fn_employer_recruitment_budget;
 
 DELIMITER $$
 
 CREATE FUNCTION fn_employer_recruitment_budget(
-    p_employer_id INT UNSIGNED,
+    p_employer_id BIGINT,
     p_from_date   DATE,
     p_to_date     DATE
 )

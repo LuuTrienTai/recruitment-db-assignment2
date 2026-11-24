@@ -63,5 +63,13 @@ cài hoặc chưa; kết quả M5 không phụ thuộc trigger):
    transaction rồi `ROLLBACK`, nên chạy lại nhiều lần được và seed không đổi; kết
    quả kỳ vọng ghi ngay trên mỗi lệnh (test function tự in `PASS`/`FAIL`). Phần B
    là các câu cố ý báo lỗi, chạy từng câu một.
+4. (Tùy chọn) `python database/tests/m5_verify_random.py` — cần `pip install
+   mysql-connector-python` và biến `DB_*` trong `.env`. Gọi hai routine như backend
+   rồi so từng ô với một cài đặt độc lập bằng Python trên dữ liệu/tham số ngẫu nhiên
+   (mặc định 3000 lần gọi mỗi routine), mọi thay đổi bị `ROLLBACK`; in `TẤT CẢ PASS`
+   và thoát mã 0 khi đúng.
 
-Hợp đồng gọi, lỗi và ví dụ: `docs/contracts.md`; quyết định thiết kế: `docs/decisions.md` (D-M5-01..07).
+Các file M5 tự chạy `SET NAMES utf8mb4` nên thông báo lỗi tiếng Việt được lưu đúng với mọi
+client, kể cả `mysql` trong container (bảng mã mặc định `latin1`).
+
+Hợp đồng gọi, lỗi và ví dụ: `docs/contracts.md`; quyết định thiết kế: `docs/decisions.md` (D-M5-01..08).
