@@ -33,8 +33,8 @@ BEGIN
 END$$
 DELIMITER ;
 
-CALL sp_search_job_postings('dev', NULL, NULL, NULL, NULL);      
-CALL sp_search_job_postings(NULL, NULL, NULL, 'open', NULL);    
-CALL sp_search_job_postings(NULL, NULL, NULL, NULL, 'title');    
-CALL sp_search_job_postings(NULL, NULL, NULL, 'abc', NULL);   
-CALL sp_search_job_postings(NULL, NULL, NULL, NULL, 'xyz');    
+-- CALL sp_search_job_postings('dev', NULL, NULL, NULL, NULL);      
+-- CALL sp_search_job_postings(NULL, NULL, NULL, 'open', NULL);    
+-- CALL sp_search_job_postings(NULL, NULL, NULL, NULL, 'title');    
+-- CALL sp_search_job_postings(NULL, NULL, NULL, 'abc', NULL);   
+-- CALL sp_search_job_postings(NULL, NULL, NULL, NULL, 'xyz');    
