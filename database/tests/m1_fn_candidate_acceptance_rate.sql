@@ -20,6 +20,7 @@
 -- =============================================================================
 
 USE recruitment_db;
+SET NAMES utf8mb4;
 
 -- =============================================================== 0. KIỂM TRA HÀM TỒN TẠI
 SELECT
@@ -115,6 +116,10 @@ FROM (
     SELECT 'A10 Có hồ sơ kỳ khác nhưng 0 hồ sơ trong kỳ lọc -> NULL',
            fn_candidate_acceptance_rate(101, '2026-01-01', '2026-09-30'),
            CAST(NULL AS DECIMAL(5,2))
+    UNION ALL
+    SELECT 'A11 Biên 1000-01-01 .. 9999-12-31 (không tràn DATE_ADD) -> 33.33',
+           fn_candidate_acceptance_rate(101, '1000-01-01', '9999-12-31'),
+           CAST(33.33 AS DECIMAL(5,2))
 ) AS logic_checks;
 
 -- A11. Truy vấn demo cho giao diện minh họa function: tỷ lệ accepted năm 2026 của mọi candidate

@@ -1,3 +1,5 @@
+USE recruitment_db;
+
 DELIMITER $$
 
 DROP PROCEDURE IF EXISTS sp_change_job_status$$

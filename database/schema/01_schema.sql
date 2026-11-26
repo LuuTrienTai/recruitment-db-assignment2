@@ -1,15 +1,12 @@
--- TODO: M2: schema Assignment 1 cuối cùng; chưa triển khai.
--- Đây là file giữ chỗ, chưa có SQL thực thi.
 USE recruitment_db;
 
-SET FOREIGN_KEY_CHECKS =0;
+SET FOREIGN_KEY_CHECKS = 0;
 -- DELETE TABLE FOR RECREATE
 DROP TABLE IF EXISTS cv;
 DROP TABLE IF EXISTS candidate_save_job_posting;
 DROP TABLE IF EXISTS job_alert;
 DROP TABLE IF EXISTS application;
 DROP TABLE IF EXISTS work_location;
-DROP TABLE IF EXISTS work_locations;
 DROP TABLE IF EXISTS candidate_interest_job_category;
 DROP TABLE IF EXISTS job_posting;
 DROP TABLE IF EXISTS declares_recruitment_need;
@@ -40,17 +37,22 @@ CREATE TABLE user_account(
     account_status VARCHAR(10) NOT NULL,
     created_date DATE NOT NULL DEFAULT (CURRENT_DATE),
     CONSTRAINT pk_user PRIMARY KEY (account_id),
-    CONSTRAINT registeration_method_select CHECK (registration_method IN ('email', 'Google', 'Facebook', 'LinkedIn')),
-    CONSTRAINT chk_user_status CHECK (account_status IN ('unverified', 'active', 'locked'))
+    CONSTRAINT chk_user_registration_method CHECK (registration_method IN ('email', 'Google', 'Facebook', 'LinkedIn')),
+    CONSTRAINT chk_user_status CHECK (account_status IN ('unverified', 'active', 'locked')),
+    CONSTRAINT chk_user_email_password CHECK (
+        registration_method <> 'email'
+        OR (hashed_password IS NOT NULL AND CHAR_LENGTH(TRIM(hashed_password)) > 0)
+    )
 );
 
 CREATE TABLE company(
     company_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     sector VARCHAR(255) NOT NULL,
     address TEXT NOT NULL,
-    name VARCHAR(255),
-    company_type VARCHAR(25),
-    CONSTRAINT pk_company PRIMARY KEY (company_id)
+    name VARCHAR(255) NOT NULL,
+    company_type VARCHAR(25) NOT NULL,
+    CONSTRAINT pk_company PRIMARY KEY (company_id),
+    CONSTRAINT chk_company_type CHECK (company_type IN ('normal', 'pro'))
 );
 
 CREATE TABLE job_category(
@@ -61,7 +63,15 @@ CREATE TABLE job_category(
     CONSTRAINT pk_job_category PRIMARY KEY (category_id),
     CONSTRAINT fk_job_category_parent FOREIGN KEY (parent_category_id)
         REFERENCES job_category(category_id)
-        ON DELETE SET NULL
+        ON DELETE SET NULL,
+    CONSTRAINT chk_job_category_level CHECK (category_level IN ('group', 'profession', 'specialisation')),
+    CONSTRAINT chk_job_category_parent_rule CHECK (
+        (category_level = 'group' AND parent_category_id IS NULL)
+        OR (category_level IN ('profession', 'specialisation') AND parent_category_id IS NOT NULL)
+    ),
+    CONSTRAINT chk_job_category_no_self_parent CHECK (
+        parent_category_id IS NULL OR parent_category_id <> category_id
+    )
 );
 
 CREATE TABLE candidate(
@@ -75,8 +85,10 @@ CREATE TABLE candidate(
     CONSTRAINT fk_candidate_account FOREIGN KEY (candidate_id)
         REFERENCES user_account(account_id)
         ON DELETE CASCADE,
-    CONSTRAINT chk_candidate_salary CHECK (expected_salary >= 0)
-
+    CONSTRAINT chk_candidate_salary CHECK (expected_salary > 0),
+    CONSTRAINT chk_candidate_experience CHECK (
+        experience_level IN ('no_experience', 'under_1_year', '1_3_years', '3_5_years', 'over_5_years')
+    )
 );
 
 CREATE TABLE employer(
@@ -140,8 +152,9 @@ CREATE TABLE job_alert(
         ON DELETE CASCADE,
     CONSTRAINT chk_job_notification_frequency CHECK (notification_frequency IN ('daily', 'weekly')),
     CONSTRAINT chk_job_alert_channel CHECK (delivery_channel IN ('email','app','both')),
-    CONSTRAINT chk_job_alert_consent CHECK (consent_confirmed = FALSE OR consent_confirmed_at IS NOT NULL)
-    
+    CONSTRAINT chk_job_alert_consent CHECK (consent_confirmed = TRUE AND consent_confirmed_at IS NOT NULL),
+    CONSTRAINT chk_job_alert_keyword CHECK (CHAR_LENGTH(TRIM(search_keyword)) > 0),
+    CONSTRAINT chk_job_alert_location CHECK (district IS NULL OR province_city IS NOT NULL)
 );
 
 CREATE TABLE candidate_desired_location(
@@ -190,8 +203,8 @@ CREATE TABLE recruitment_need(
     consultation TEXT NULL,
     CONSTRAINT pk_recruitment_need PRIMARY KEY (need_id),
     CONSTRAINT chk_need_number CHECK (number_employee_required > 0),
-    CONSTRAINT chk_need_budget CHECK (budget >= 0),
-    CONSTRAINT chk_need_date CHECK (expected_completion_date IS NULL OR expected_completion_date >= declared_date)
+    CONSTRAINT chk_need_budget CHECK (budget IS NULL OR budget >= 0),
+    CONSTRAINT chk_need_date CHECK (expected_completion_date IS NULL OR expected_completion_date > declared_date)
 );
 
 CREATE TABLE declares_recruitment_need(
@@ -224,7 +237,15 @@ CREATE TABLE verification_task(
         ON DELETE SET NULL,
     CONSTRAINT chk_task_type CHECK (task_type IN ('phone_verification','company_information','business_registration','personal_data_agreement')),
     CONSTRAINT chk_verification_status CHECK (task_status IN ('not_completed', 'submitted', 'approved', 'rejected')),
-    CONSTRAINT chk_verification_date CHECK (reviewed_at IS NULL OR reviewed_at >= submitted_at)
+    CONSTRAINT chk_verification_date CHECK (reviewed_at IS NULL OR (submitted_at IS NOT NULL AND reviewed_at >= submitted_at)),
+    CONSTRAINT chk_verification_auto_no_admin CHECK (
+        task_type NOT IN ('phone_verification', 'personal_data_agreement') OR admin_id IS NULL
+    ),
+    CONSTRAINT chk_verification_manual_review CHECK (
+        task_type NOT IN ('company_information', 'business_registration')
+        OR task_status NOT IN ('approved', 'rejected')
+        OR (admin_id IS NOT NULL AND reviewed_at IS NOT NULL)
+    )
 );
 
 CREATE TABLE recruitment_campaign(
@@ -234,7 +255,7 @@ CREATE TABLE recruitment_campaign(
     recruitment_need_id INT UNSIGNED NULL,
     name TEXT NOT NULL,
     creation_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    campaign_status VARCHAR(20) NULL,
+    campaign_status VARCHAR(20) NOT NULL,
     CONSTRAINT pk_recruitment_campaign PRIMARY KEY (campaign_id),
     CONSTRAINT uq_campaign_need UNIQUE (recruitment_need_id),
     CONSTRAINT fk_campaign_created_employer FOREIGN KEY (created_by_employer_id)
@@ -282,10 +303,18 @@ CREATE TABLE job_posting(
         REFERENCES recruitment_campaign(campaign_id)
         ON DELETE RESTRICT,
     CONSTRAINT chk_job_posting_status CHECK (job_status IN ('open','closed')),
-    CONSTRAINT chk_job_posting_min_salary CHECK (min_salary IS NULL OR min_salary >= 0),
-    CONSTRAINT chk_job_posting_salary CHECK (max_salary >= min_salary),
-    CONSTRAINT chk_job_posting_deadline CHECK (application_deadline >= posted_date)
-
+    CONSTRAINT chk_job_posting_min_salary CHECK (min_salary IS NULL OR min_salary > 0),
+    CONSTRAINT chk_job_posting_max_salary CHECK (max_salary IS NULL OR max_salary > 0),
+    CONSTRAINT chk_job_posting_salary CHECK (min_salary IS NULL OR max_salary IS NULL OR max_salary >= min_salary),
+    CONSTRAINT chk_job_posting_deadline CHECK (application_deadline > posted_date),
+    CONSTRAINT chk_job_posting_saturday_policy CHECK (saturday_work_policy IN ('working', 'off', 'not_specified')),
+    CONSTRAINT chk_job_posting_experience CHECK (required_experience IN ('no_experience', 'under_1_year', '1_3_years', '3_5_years', 'over_5_years')),
+    CONSTRAINT chk_job_posting_employment_type CHECK (employment_type IN ('full_time', 'part_time', 'contract', 'internship')),
+    CONSTRAINT chk_job_posting_application_method CHECK (application_method IN ('on_site', 'external')),
+    CONSTRAINT chk_job_posting_external_contact CHECK (
+        application_method <> 'external'
+        OR (contact_detail IS NOT NULL AND CHAR_LENGTH(TRIM(contact_detail)) > 0)
+    )
 );
 
 CREATE TABLE candidate_save_job_posting(
@@ -332,7 +361,14 @@ CREATE TABLE application(
     CONSTRAINT fk_application_job FOREIGN KEY (job_posting_id)
         REFERENCES job_posting(job_posting_id)
         ON DELETE RESTRICT,
-    CONSTRAINT chk_application_status CHECK (application_status IN ('submitted','viewed','interviewing','accepted','rejected'))
+    CONSTRAINT chk_application_status CHECK (application_status IN ('submitted','viewed','interviewing','accepted','rejected')),
+    CONSTRAINT chk_application_consent CHECK (personal_data_usage_agreed = TRUE),
+    CONSTRAINT chk_application_contact CHECK (
+        CHAR_LENGTH(TRIM(contact_name)) > 0
+        AND CHAR_LENGTH(TRIM(email)) > 0
+        AND CHAR_LENGTH(TRIM(phone_number)) > 0
+        AND CHAR_LENGTH(TRIM(work_location)) > 0
+    )
 );
 
 CREATE TABLE interview(
@@ -355,5 +391,6 @@ CREATE TABLE interview(
         ON DELETE RESTRICT,
     CONSTRAINT chk_interview_status CHECK (interview_status IN ('scheduled', 'completed', 'cancelled')),
     CONSTRAINT chk_interview_time CHECK (end_time > start_time),
-    CONSTRAINT chk_interview_mode CHECK (interview_mode IN ('online','in_person'))
+    CONSTRAINT chk_interview_mode CHECK (interview_mode IN ('online','in_person')),
+    CONSTRAINT chk_interview_feedback CHECK (feedback IS NULL OR interview_status = 'completed')
 );

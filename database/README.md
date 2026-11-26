@@ -1,75 +1,37 @@
 # Database scripts
 
-The project targets MySQL 8.4. Schema ownership belongs to M2; M3's seed and
-CRUD scripts are based on the relational schema in the submitted Assignment 1
-PDF and the two later relationship clarifications.
+Dự án chạy trên **MySQL 8.4** (`InnoDB`, `utf8mb4`). Schema dựa trên thiết kế Assignment 1 (`docs/Assignment1_Report.pdf`) kèm 2 bổ sung đã chốt cho `declares_recruitment_need` và `recruitment_campaign.managed_by_employer_id`.
 
-## Fresh-database order
+## Thứ tự chạy trên database rỗng (M1–M6)
 
-1. M2 implements and runs `schema/01_schema.sql`, including the confirmed
-   ternary declaration and campaign-management relationship, and shares the
-   final table and column names with M3.
-2. Run completed triggers, if present.
-3. Run `seeds/01_seed.sql` once. It is intended to insert at least five rows into every table
-   and prints a row-count audit. The seed recalculates `job_posting.application_count`
-   after loading applications, so the derived count remains correct whether the
-   application-count trigger ran during seeding or not.
-4. Run `procedures/m3_job_crud.sql` to install the M3 create, read, update, and
-   delete procedures.
-5. Run `tests/m3_job_crud.sql` to demonstrate the CRUD operations in a
-   transaction that is rolled back at the end; its PASS/FAIL results check
-   persisted create, update, and delete outcomes. Run each call in
-   `tests/m3_job_crud_expected_errors.sql` separately because each intentionally
-   raises an error.
+Chạy lần lượt các script dưới đây bằng client hỗ trợ `DELIMITER` (`mysql` CLI hoặc DBeaver *Execute SQL Script*):
 
-Use a fresh database for the seed: its IDs are fixed and it is not intended to
-be run repeatedly against populated tables. End-to-end execution is pending M2's
-schema implementation and integration; the current schema file remains M2's
-placeholder and is intentionally not implemented by M3.
+1. **Schema (M2):** `schema/01_schema.sql` — tạo toàn bộ 20 bảng, khóa chính, khóa ngoại, `UNIQUE`, và `CHECK` constraints.
+2. **Dữ liệu mẫu (M3):** `seeds/01_seed.sql` — nạp dữ liệu mẫu cho 20 bảng (≥ 5 dòng/bảng), tự đối soát `job_posting.application_count` và in bảng kiểm đếm số dòng. *(Chỉ chạy 1 lần trên DB rỗng vì ID là cố định).*
+3. **Triggers (M4):**
+   - `triggers/m4_application_count.sql` — trigger DA01 (`AFTER INSERT`/`DELETE`/`UPDATE` trên `application`) kèm bước đối soát `application_count`.
+   - `triggers/m4_business_constraint.sql` — trigger SC15b (`BEFORE INSERT`/`UPDATE` trên `interview`) chống trùng lịch phỏng vấn của cùng employer.
+   *(Nếu MySQL bật binary log và user `recruitment_app` gặp lỗi `1419`, cài trigger/function bằng tài khoản `root` theo hướng dẫn tại `triggers/README_M4.md`).*
+4. **Stored Procedures (M2, M3, M5, M6):**
+   - `procedures/m2_search_jobs.sql` — `sp_search_job_postings` (mục 2.3).
+   - `procedures/m3_job_crud.sql` — `sp_validate_job_posting`, `sp_create_job_posting`, `sp_get_job_posting`, `sp_list_job_postings`, `sp_update_job_posting`, `sp_delete_job_posting` (mục 2.1).
+   - `procedures/m6_change_job_status.sql` — `sp_change_job_status` (mục 2.1, bổ sung đổi trạng thái).
+   - `procedures/m5_application_report.sql` — `sp_report_job_applications` (mục 2.3).
+5. **Functions (M1, M5):** *(nên chạy bằng `root` nếu gặp lỗi 1419; sau khi tạo, `recruitment_app` gọi bình thường)*
+   - `functions/m1_candidate_acceptance_rate.sql` — `fn_candidate_acceptance_rate` (mục 2.4).
+   - `functions/m5_recruitment_budget.sql` — `fn_employer_recruitment_budget` (mục 2.4).
 
-## M3 implementation notes
+## Kịch bản kiểm thử (`database/tests/`)
 
-- `JOB_POSTING` CRUD creates postings as `open`; the update procedure does not
-  change status, leaving status transitions and their rules to M6. Read
-  procedures return one posting or list postings.
-- CRUD procedures validate required values, dates, salary bounds, application
-  method, specialisation category, and campaign/company consistency.
-- Deletion is disallowed when applications exist, preserving recruitment history;
-  close the posting instead. Work locations and saved-job rows are removed by
-  their foreign-key cascades when deletion is allowed.
-- The Assignment 1 `DECLARE` ternary relationship is stored in
-  `declares_recruitment_need` (`EMPLOYER`, `COMPANY`, `RECRUITMENT_NEED`).
-- Campaign creation and management remain separate relationships. A campaign
-  requires both a creator and a manager; an employer may manage no campaigns.
-  `managed_by_employer_id` represents the new 1:N `manage` relationship.
-- Seed password digests are demonstration-only and must not be used for real
-  authentication.
+- **M1:** `tests/m1_fn_candidate_acceptance_rate.sql` (Phần A dùng `TRANSACTION` + `ROLLBACK`, Phần B tự bắt `SQLSTATE '45000'`).
+- **M2:** `tests/m2_sp_search_job_postings.sql` (Phần A chạy `CALL` kiểm tra lọc/sắp xếp trên seed; Phần B chạy từng câu một để kiểm tra lỗi).
+- **M3:** `tests/m3_job_crud.sql` (`TRANSACTION` + `ROLLBACK`); chạy từng câu một trong `tests/m3_job_crud_expected_errors.sql` để kiểm tra thông báo lỗi.
+- **M4:** `tests/test_m4_application_count.sql` và `tests/test_m4_business_constraint.sql` (Phần B chạy từng câu một).
+- **M5:** `tests/m5_sp_report_job_applications.sql` và `tests/m5_fn_employer_recruitment_budget.sql` (Phần B chạy từng câu một); tùy chọn chạy `python database/tests/m5_verify_random.py` với `mysql-connector-python` và `.env` để đối chiếu ngẫu nhiên.
+- **M6:** `tests/m6_change_job_status.sql` (`TRANSACTION` + `ROLLBACK`, in `PASS` khi đạt).
 
-`procedures/m3_job_crud.sql` uses `DELIMITER`; run it with a MySQL-aware client
-such as MySQL Workbench or the `mysql` command-line client.
+## Ghi chú triển khai
 
-## M5 — thống kê hồ sơ và ngân sách tuyển dụng
-
-Chạy sau `schema/01_schema.sql` và `seeds/01_seed.sql` (trigger M4 có thể đã
-cài hoặc chưa; kết quả M5 không phụ thuộc trigger):
-
-1. `procedures/m5_application_report.sql` — tạo `sp_report_job_applications` (mục 2.3).
-2. `functions/m5_recruitment_budget.sql` — tạo `fn_employer_recruitment_budget` (mục 2.4).
-   Chạy bằng tài khoản quản trị (root): MySQL 8.4 bật binary log mặc định nên
-   `recruitment_app` tạo function sẽ gặp lỗi 1419, giống trigger M4
-   (`triggers/README_M4.md`). Sau khi tạo, `recruitment_app` gọi function bình thường.
-3. `tests/m5_sp_report_job_applications.sql` và
-   `tests/m5_fn_employer_recruitment_budget.sql` — phần A thêm dữ liệu demo trong
-   transaction rồi `ROLLBACK`, nên chạy lại nhiều lần được và seed không đổi; kết
-   quả kỳ vọng ghi ngay trên mỗi lệnh (test function tự in `PASS`/`FAIL`). Phần B
-   là các câu cố ý báo lỗi, chạy từng câu một.
-4. (Tùy chọn) `python database/tests/m5_verify_random.py` — cần `pip install
-   mysql-connector-python` và biến `DB_*` trong `.env`. Gọi hai routine như backend
-   rồi so từng ô với một cài đặt độc lập bằng Python trên dữ liệu/tham số ngẫu nhiên
-   (mặc định 3000 lần gọi mỗi routine), mọi thay đổi bị `ROLLBACK`; in `TẤT CẢ PASS`
-   và thoát mã 0 khi đúng.
-
-Các file M5 tự chạy `SET NAMES utf8mb4` nên thông báo lỗi tiếng Việt được lưu đúng với mọi
-client, kể cả `mysql` trong container (bảng mã mặc định `latin1`).
-
-Hợp đồng gọi, lỗi và ví dụ: `docs/contracts.md`; quyết định thiết kế: `docs/decisions.md` (D-M5-01..08).
+- `JOB_POSTING` được M3 tạo với trạng thái ban đầu `'open'`; `sp_update_job_posting` không sửa `job_status`, việc đóng/mở tin theo quy tắc SC12 do `sp_change_job_status` (M6) phụ trách.
+- Không cho phép xóa `job_posting` khi đã có `application` để bảo toàn lịch sử tuyển dụng (đóng tin thay thế). Khi xóa hợp lệ, `work_location` và `candidate_save_job_posting` tự xóa theo `ON DELETE CASCADE`.
+- Tài liệu hợp đồng gọi & lỗi chi tiết: `docs/contracts.md`; quyết định thiết kế: `docs/decisions.md`; bảng quy tắc nghiệp vụ: `docs/business_rules.md`.

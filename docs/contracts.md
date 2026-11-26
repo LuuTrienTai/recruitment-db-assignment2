@@ -3,17 +3,12 @@
 Mỗi routine cần: tên, chủ sở hữu, mục đích, input/kiểu/default, output/kiểu,
 lỗi, quy tắc nghiệp vụ, ví dụ gọi và kết quả kỳ vọng.
 
-| Routine dự kiến | Chủ sở hữu | Trạng thái |
+| Routine | Chủ sở hữu | Trạng thái |
 |---|---|---|
-| sp_search_job_postings | M2 | Đề xuất |
-| sp_create_job_posting / sp_update_job_posting / sp_delete_job_posting | M3 | Đề xuất |
-<<<<<<< HEAD
-| sp_report_job_applications | M5 | Đề xuất |
-| sp_change_job_status | M6 | Đã viết |
-=======
+| sp_search_job_postings | M2 | Đã viết, đã có kịch bản test |
+| sp_create_job_posting / sp_get_job_posting / sp_list_job_postings / sp_update_job_posting / sp_delete_job_posting | M3 | Đã viết, đã có kịch bản test |
 | sp_report_job_applications | M5 | Đã viết, đã test trên MySQL 8.4 |
-| sp_change_job_status | M6 | Đề xuất |
->>>>>>> main
+| sp_change_job_status | M6 | Đã viết, đã có kịch bản test |
 | fn_candidate_acceptance_rate | M1 | Đã viết, đã có kịch bản test |
 | fn_employer_recruitment_budget | M5 | Đã viết, đã test trên MySQL 8.4 |
 
@@ -29,7 +24,7 @@ M2 + M6 đối chiếu cách gọi, tên trường, định dạng ngày, NULL, 
 |---|---|---|---|
 | `p_candidate_id` | `INT UNSIGNED` | Không — báo lỗi | Mã ứng viên cần tính tỷ lệ (phải tồn tại trong bảng `candidate`) |
 | `p_from_date` | `DATE` | Có — không giới hạn đầu dưới | Lọc `application.submission_time >= TIMESTAMP(p_from_date)` (`00:00:00` ngày bắt đầu) |
-| `p_to_date` | `DATE` | Có — không giới hạn đầu trên | Lọc `application.submission_time < TIMESTAMP(p_to_date + 1 ngày)` (lấy trọn đến hết ngày kết thúc) |
+| `p_to_date` | `DATE` | Có — không giới hạn đầu trên | Lọc `DATE(application.submission_time) <= p_to_date` (lấy trọn đến hết ngày kết thúc, an toàn cả với `'9999-12-31'`) |
 
 | Trường hợp | Giá trị trả về |
 |---|---|
@@ -52,20 +47,40 @@ M2 + M6 đối chiếu cách gọi, tên trường, định dạng ngày, NULL, 
   - `SELECT fn_candidate_acceptance_rate(101, '2026-01-01', '2026-12-31');` → `0.00`
   - `SELECT fn_candidate_acceptance_rate(106, NULL, NULL);` → `NULL`
 
-<<<<<<< HEAD
-## M6 — sp_change_job_status (2.1)
+## M2 — sp_search_job_postings (2.3)
 
-- SQL: `database/procedures/m6_change_job_status.sql`. Kiểm thử trên dữ liệu seed: `database/tests/m6_change_job_status.sql`.
-- Gọi `CALL sp_change_job_status(p_job_posting_id, p_new_status)`. Hai tham số bắt buộc, không có giá trị mặc định.
-- `p_job_posting_id INT UNSIGNED` là khóa của `job_posting`, phải lớn hơn 0.
-- `p_new_status TEXT` nhận đúng `open` hoặc `closed`. Backend gửi mã trạng thái chữ thường.
-- Thành công trả một dòng gồm `job_posting_id` và `job_status`. Gửi lại cùng trạng thái hợp lệ được xử lý như một lần thành công.
-- Theo SC12, có thể đóng tin khi còn hạn hoặc đã quá hạn. Có thể mở lại tin nếu `application_deadline >= CURRENT_DATE()` theo múi giờ phiên MySQL. Tin hết hạn vẫn báo lỗi khi yêu cầu `open`, kể cả nếu dữ liệu cũ đang lưu `open`.
-- Lỗi dùng `SQLSTATE '45000'` với thông báo cụ thể cho ID thiếu hoặc bằng 0, tin không tồn tại, trạng thái sai, hạn đã qua hoặc thay đổi đồng thời cần thử lại.
-- Procedure chỉ cập nhật `job_posting.job_status`. M3 tạo tin với `open` và phụ trách sửa các trường thông tin khác. Backend quản lý transaction nếu gọi cùng các thao tác khác và kiểm tra quyền thao tác của người dùng trước khi gọi.
-- Ví dụ trên seed, `CALL sp_change_job_status(701, 'closed');` trả `701, closed`. `CALL sp_change_job_status(703, 'open');` báo đã quá hạn khi ngày hiện tại sau 2026-10-31.
-- SC12 còn cần tác vụ định kỳ đóng các tin khi thời gian trôi qua. Procedure này xử lý yêu cầu đổi trạng thái theo từng tin.
-=======
+- File: `database/procedures/m2_search_jobs.sql`; test: `database/tests/m2_sp_search_job_postings.sql`.
+- Mục đích: tìm kiếm, lọc và sắp xếp danh sách tin tuyển dụng (`job_posting`) kết hợp tên công ty (`company`) và tên danh mục nghề (`job_category`). Dùng cho màn hình danh sách/tìm kiếm tin (mục 3.2).
+- Gọi: `CALL sp_search_job_postings(p_keyword VARCHAR(255), p_company_id INT UNSIGNED, p_category_id INT UNSIGNED, p_job_status VARCHAR(25), p_sort_by VARCHAR(30))`.
+
+| Tham số | Kiểu | Cho phép NULL? | Ý nghĩa |
+|---|---|---|---|
+| `p_keyword` | `VARCHAR(255)` | Có — không lọc từ khóa | Lọc `jp.title LIKE CONCAT('%', p_keyword, '%')` |
+| `p_company_id` | `INT UNSIGNED` | Có — mọi công ty | Lọc `jp.company_id = p_company_id` |
+| `p_category_id` | `INT UNSIGNED` | Có — mọi danh mục | Lọc `jp.category_id = p_category_id` |
+| `p_job_status` | `VARCHAR(25)` | Có — mọi trạng thái | Chỉ nhận `'open'`, `'closed'` hoặc `NULL` |
+| `p_sort_by` | `VARCHAR(30)` | Có — mặc định `posted_date DESC, job_posting_id DESC` | Nhận `'title'` (ASC), `'posted_date'` (DESC), `'application_deadline'` (DESC), `'min_salary'` (DESC), `'max_salary'` (DESC), hoặc `NULL` |
+
+- Kết quả: trả các cột `job_posting_id`, `title`, `company_id`, `company_name`, `category_id`, `category_name`, `job_status`, `min_salary`, `max_salary`, `posted_date`, `application_deadline`, `application_count`.
+- Lỗi (`SQLSTATE '45000'`):
+  - `p_job_status` khác `'open'`, `'closed'` (khi khác `NULL`): `'Job status must be open or closed.'`
+  - `p_sort_by` ngoài danh sách hợp lệ (khi khác `NULL`): `'Sort column must be title, posted_date, application_deadline, min_salary, or max_salary.'`
+- Ví dụ gọi trên dữ liệu seed gốc:
+  - `CALL sp_search_job_postings('Engineer', NULL, NULL, NULL, NULL);` → các tin có từ `Engineer` trong tiêu đề (`701`, `702`, `707`).
+  - `CALL sp_search_job_postings(NULL, NULL, NULL, 'closed', NULL);` → tin `703`.
+
+## M3 — Job Posting CRUD (2.1)
+
+- File: `database/procedures/m3_job_crud.sql`; test: `database/tests/m3_job_crud.sql`, `database/tests/m3_job_crud_expected_errors.sql`.
+- Các procedure:
+  - `sp_validate_job_posting(...)`: helper kiểm tra tính hợp lệ các trường dữ liệu, mức lương dương (`> 0`), `min_salary <= max_salary`, `application_deadline > posted_date`, `contact_detail` bắt buộc khi `application_method = 'external'`, `category_id` thuộc cấp `'specialisation'`, `company_id` tồn tại và khớp với công ty của người tạo `campaign_id`.
+  - `sp_create_job_posting(..., OUT p_job_posting_id INT UNSIGNED)`: tạo tin mới với trạng thái mặc định `'open'`; yêu cầu `p_posted_date <= CURRENT_DATE()` và `p_application_deadline >= CURRENT_DATE()`.
+  - `sp_get_job_posting(p_job_posting_id INT UNSIGNED)`: trả chi tiết 1 dòng từ `job_posting` (báo lỗi nếu `NULL` hoặc không tồn tại).
+  - `sp_list_job_postings()`: trả toàn bộ `job_posting` sắp xếp `posted_date DESC, job_posting_id DESC`.
+  - `sp_update_job_posting(p_job_posting_id INT UNSIGNED, ...)`: cập nhật thông tin tin tuyển dụng (không thay đổi `job_status` — phần đổi trạng thái do M6 `sp_change_job_status` phụ trách).
+  - `sp_delete_job_posting(p_job_posting_id INT UNSIGNED)`: chỉ cho phép xóa khi tin chưa có bản ghi `application` nào; nếu đã có hồ sơ ứng tuyển thì báo lỗi `'Cannot delete a job posting with applications; close it instead to preserve recruitment history.'` để bảo toàn lịch sử tuyển dụng.
+- Lỗi (`SQLSTATE '45000'`): trả thông báo tiếng Anh cụ thể cho từng trường thiếu/sai miền giá trị, sai ngày (`'Application deadline must be later than the posted date.'`), lương không dương (`'Salary values must be positive.'`), sai cấp danh mục, không khớp công ty của campaign, ID không tồn tại hoặc xóa tin đã có hồ sơ.
+
 ## M5 — sp_report_job_applications (2.3)
 
 - File: `database/procedures/m5_application_report.sql`; test: `database/tests/m5_sp_report_job_applications.sql`.
@@ -137,4 +152,16 @@ M2 + M6 đối chiếu cách gọi, tên trường, định dạng ngày, NULL, 
   - `SELECT fn_employer_recruitment_budget(210, NULL, NULL);` → `0.00` (nhu cầu 506 có ngân sách bằng 0)
   - `SELECT fn_employer_recruitment_budget(209, NULL, NULL);` → `NULL` (nhu cầu 505 chưa có ngân sách)
   - `SELECT fn_employer_recruitment_budget(202, NULL, NULL);` → `0.00` (không khai báo nhu cầu nào)
->>>>>>> main
+
+## M6 — sp_change_job_status (2.1)
+
+- SQL: `database/procedures/m6_change_job_status.sql`. Kiểm thử trên dữ liệu seed: `database/tests/m6_change_job_status.sql`.
+- Gọi `CALL sp_change_job_status(p_job_posting_id, p_new_status)`. Hai tham số bắt buộc, không có giá trị mặc định.
+- `p_job_posting_id INT UNSIGNED` là khóa của `job_posting`, phải lớn hơn 0.
+- `p_new_status TEXT` nhận đúng `open` hoặc `closed`. Backend gửi mã trạng thái chữ thường.
+- Thành công trả một dòng gồm `job_posting_id` và `job_status`. Gửi lại cùng trạng thái hợp lệ được xử lý như một lần thành công.
+- Theo SC12, có thể đóng tin khi còn hạn hoặc đã quá hạn. Có thể mở lại tin nếu `application_deadline >= CURRENT_DATE()` theo múi giờ phiên MySQL. Tin hết hạn vẫn báo lỗi khi yêu cầu `open`, kể cả nếu dữ liệu cũ đang lưu `open`.
+- Lỗi dùng `SQLSTATE '45000'` với thông báo cụ thể cho ID thiếu hoặc bằng 0, tin không tồn tại, trạng thái sai, hạn đã qua hoặc thay đổi đồng thời cần thử lại.
+- Procedure chỉ cập nhật `job_posting.job_status`. M3 tạo tin với `open` và phụ trách sửa các trường thông tin khác. Backend quản lý transaction nếu gọi cùng các thao tác khác và kiểm tra quyền thao tác của người dùng trước khi gọi.
+- Ví dụ trên seed, `CALL sp_change_job_status(701, 'closed');` trả `701, closed`. `CALL sp_change_job_status(703, 'open');` báo đã quá hạn khi ngày hiện tại sau 2026-10-31.
+- SC12 còn cần tác vụ định kỳ đóng các tin khi thời gian trôi qua. Procedure này xử lý yêu cầu đổi trạng thái theo từng tin.
