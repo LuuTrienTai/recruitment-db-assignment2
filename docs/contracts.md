@@ -7,8 +7,13 @@ lỗi, quy tắc nghiệp vụ, ví dụ gọi và kết quả kỳ vọng.
 |---|---|---|
 | sp_search_job_postings | M2 | Đề xuất |
 | sp_create_job_posting / sp_update_job_posting / sp_delete_job_posting | M3 | Đề xuất |
+<<<<<<< HEAD
+| sp_report_job_applications | M5 | Đề xuất |
+| sp_change_job_status | M6 | Đã viết |
+=======
 | sp_report_job_applications | M5 | Đã viết, đã test trên MySQL 8.4 |
 | sp_change_job_status | M6 | Đề xuất |
+>>>>>>> main
 | fn_candidate_acceptance_rate | M1 | Đã viết, đã có kịch bản test |
 | fn_employer_recruitment_budget | M5 | Đã viết, đã test trên MySQL 8.4 |
 
@@ -47,6 +52,20 @@ M2 + M6 đối chiếu cách gọi, tên trường, định dạng ngày, NULL, 
   - `SELECT fn_candidate_acceptance_rate(101, '2026-01-01', '2026-12-31');` → `0.00`
   - `SELECT fn_candidate_acceptance_rate(106, NULL, NULL);` → `NULL`
 
+<<<<<<< HEAD
+## M6 — sp_change_job_status (2.1)
+
+- SQL: `database/procedures/m6_change_job_status.sql`. Kiểm thử trên dữ liệu seed: `database/tests/m6_change_job_status.sql`.
+- Gọi `CALL sp_change_job_status(p_job_posting_id, p_new_status)`. Hai tham số bắt buộc, không có giá trị mặc định.
+- `p_job_posting_id INT UNSIGNED` là khóa của `job_posting`, phải lớn hơn 0.
+- `p_new_status TEXT` nhận đúng `open` hoặc `closed`. Backend gửi mã trạng thái chữ thường.
+- Thành công trả một dòng gồm `job_posting_id` và `job_status`. Gửi lại cùng trạng thái hợp lệ được xử lý như một lần thành công.
+- Theo SC12, có thể đóng tin khi còn hạn hoặc đã quá hạn. Có thể mở lại tin nếu `application_deadline >= CURRENT_DATE()` theo múi giờ phiên MySQL. Tin hết hạn vẫn báo lỗi khi yêu cầu `open`, kể cả nếu dữ liệu cũ đang lưu `open`.
+- Lỗi dùng `SQLSTATE '45000'` với thông báo cụ thể cho ID thiếu hoặc bằng 0, tin không tồn tại, trạng thái sai, hạn đã qua hoặc thay đổi đồng thời cần thử lại.
+- Procedure chỉ cập nhật `job_posting.job_status`. M3 tạo tin với `open` và phụ trách sửa các trường thông tin khác. Backend quản lý transaction nếu gọi cùng các thao tác khác và kiểm tra quyền thao tác của người dùng trước khi gọi.
+- Ví dụ trên seed, `CALL sp_change_job_status(701, 'closed');` trả `701, closed`. `CALL sp_change_job_status(703, 'open');` báo đã quá hạn khi ngày hiện tại sau 2026-10-31.
+- SC12 còn cần tác vụ định kỳ đóng các tin khi thời gian trôi qua. Procedure này xử lý yêu cầu đổi trạng thái theo từng tin.
+=======
 ## M5 — sp_report_job_applications (2.3)
 
 - File: `database/procedures/m5_application_report.sql`; test: `database/tests/m5_sp_report_job_applications.sql`.
@@ -118,3 +137,4 @@ M2 + M6 đối chiếu cách gọi, tên trường, định dạng ngày, NULL, 
   - `SELECT fn_employer_recruitment_budget(210, NULL, NULL);` → `0.00` (nhu cầu 506 có ngân sách bằng 0)
   - `SELECT fn_employer_recruitment_budget(209, NULL, NULL);` → `NULL` (nhu cầu 505 chưa có ngân sách)
   - `SELECT fn_employer_recruitment_budget(202, NULL, NULL);` → `0.00` (không khai báo nhu cầu nào)
+>>>>>>> main
