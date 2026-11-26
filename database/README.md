@@ -47,3 +47,29 @@ placeholder and is intentionally not implemented by M3.
 
 `procedures/m3_job_crud.sql` uses `DELIMITER`; run it with a MySQL-aware client
 such as MySQL Workbench or the `mysql` command-line client.
+
+## M5 — thống kê hồ sơ và ngân sách tuyển dụng
+
+Chạy sau `schema/01_schema.sql` và `seeds/01_seed.sql` (trigger M4 có thể đã
+cài hoặc chưa; kết quả M5 không phụ thuộc trigger):
+
+1. `procedures/m5_application_report.sql` — tạo `sp_report_job_applications` (mục 2.3).
+2. `functions/m5_recruitment_budget.sql` — tạo `fn_employer_recruitment_budget` (mục 2.4).
+   Chạy bằng tài khoản quản trị (root): MySQL 8.4 bật binary log mặc định nên
+   `recruitment_app` tạo function sẽ gặp lỗi 1419, giống trigger M4
+   (`triggers/README_M4.md`). Sau khi tạo, `recruitment_app` gọi function bình thường.
+3. `tests/m5_sp_report_job_applications.sql` và
+   `tests/m5_fn_employer_recruitment_budget.sql` — phần A thêm dữ liệu demo trong
+   transaction rồi `ROLLBACK`, nên chạy lại nhiều lần được và seed không đổi; kết
+   quả kỳ vọng ghi ngay trên mỗi lệnh (test function tự in `PASS`/`FAIL`). Phần B
+   là các câu cố ý báo lỗi, chạy từng câu một.
+4. (Tùy chọn) `python database/tests/m5_verify_random.py` — cần `pip install
+   mysql-connector-python` và biến `DB_*` trong `.env`. Gọi hai routine như backend
+   rồi so từng ô với một cài đặt độc lập bằng Python trên dữ liệu/tham số ngẫu nhiên
+   (mặc định 3000 lần gọi mỗi routine), mọi thay đổi bị `ROLLBACK`; in `TẤT CẢ PASS`
+   và thoát mã 0 khi đúng.
+
+Các file M5 tự chạy `SET NAMES utf8mb4` nên thông báo lỗi tiếng Việt được lưu đúng với mọi
+client, kể cả `mysql` trong container (bảng mã mặc định `latin1`).
+
+Hợp đồng gọi, lỗi và ví dụ: `docs/contracts.md`; quyết định thiết kế: `docs/decisions.md` (D-M5-01..08).
