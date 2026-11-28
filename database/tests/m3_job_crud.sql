@@ -1,5 +1,7 @@
 -- Run against the seeded database after installing m3_job_crud.sql.
 -- The transaction rolls the demonstration insert, update, and delete back.
+USE recruitment_db;
+
 START TRANSACTION;
 
 CALL sp_create_job_posting(

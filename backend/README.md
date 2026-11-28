@@ -1,14 +1,17 @@
-# Backend — M2
+# Backend
 
-Stack: Python 3.12, FastAPI, Uvicorn, mysql-connector-python.
+Python 3.12, FastAPI, Uvicorn và mysql-connector-python. Xem [README gốc](../README.md)
+để khởi động. API đọc cấu hình `DB_*` và `CORS_ORIGINS` từ `.env` ở thư mục gốc.
 
-M2 cần:
-- Tạo virtual environment và khóa dependencies trong requirements.txt.
-- Tạo entrypoint FastAPI và cấu hình đọc biến môi trường.
-- Endpoint /api/health/db thực hiện SELECT 1.
-- Lớp gọi stored procedure/function bằng tham số, xử lý result sets.
-- Commit/rollback rõ ràng; chuyển lỗi nghiệp vụ thành phản hồi API.
-- Cấu hình CORS cho http://localhost:5173.
+| Method | Endpoint | MySQL |
+| --- | --- | --- |
+| GET | `/api/health/db` | `SELECT 1` |
+| GET | `/api/job-postings/form-options` | Đọc công ty, campaign, specialisation và ngày hiện tại |
+| GET | `/api/job-postings/{id}` | `CALL sp_get_job_posting` |
+| POST | `/api/job-postings` | `CALL sp_create_job_posting`, đọc ID từ tham số OUT |
+| PUT | `/api/job-postings/{id}` | `CALL sp_update_job_posting` |
+| DELETE | `/api/job-postings/{id}` | `CALL sp_delete_job_posting` |
 
-Cấu trúc đã chuẩn bị: app/api, app/core, app/db, app/services, app/schemas.
-Chưa có endpoint hoặc logic ứng dụng triển khai sẵn.
+POST và PUT trả bản ghi đã lưu. Giá trị lương được trả dưới dạng chuỗi thập
+phân hoặc `null`. DELETE trả `204`. Lỗi nghiệp vụ từ procedure được trả
+qua trường `detail`. API dùng cho môi trường demo local.

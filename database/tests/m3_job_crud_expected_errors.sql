@@ -1,5 +1,6 @@
 -- Run one CALL block at a time after loading the M3 procedures and seed.
 -- Each call should raise its documented error and leave existing data unchanged.
+USE recruitment_db;
 
 -- Expected: "The job posting to update does not exist."
 CALL sp_update_job_posting(
@@ -90,7 +91,7 @@ CALL sp_create_job_posting(
     @invalid_job_posting_id
 );
 
--- Expected: "Salary values cannot be negative."
+-- Expected: "Salary values must be positive."
 CALL sp_create_job_posting(
     4, 401, 601,
     'Negative Salary Demo',
@@ -111,7 +112,7 @@ CALL sp_create_job_posting(
     @invalid_job_posting_id
 );
 
--- Expected: "Application deadline cannot be earlier than the posted date."
+-- Expected: "Application deadline must be later than the posted date."
 CALL sp_update_job_posting(
     701, 4, 401, 601,
     'Invalid Deadline Demo',
