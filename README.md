@@ -1,53 +1,103 @@
 # Recruitment Database — Assignment 2
 
-Bộ khung khởi đầu theo phân công 6 thành viên. Chưa có schema, procedure,
-function, trigger hay ứng dụng nghiệp vụ hoàn chỉnh.
+Dự án Database Systems (CO2013) — Assignment 2, thực hiện theo phân công 6 thành viên (M1–M6) trên MySQL 8.4.
+Repo có schema, seed và các routine của Phần 1–2. Màn hình CRUD tin tuyển dụng cho mục 3.1 chạy với FastAPI, React và MySQL.
 
 ## Cấu trúc
 
-- `database/schema/`: M2 — CREATE TABLE, PK/FK/UNIQUE/CHECK.
-- `database/seeds/`: M3 — dữ liệu mẫu; mục tiêu ít nhất 5 dòng/bảng.
-- `database/procedures/`: M2 tìm kiếm, M3 CRUD, M5 thống kê, M6 chuyển trạng thái.
-- `database/functions/`: M1 tỷ lệ accepted, M5 tính ngân sách.
-- `database/triggers/`: M4 — nghiệp vụ, thuộc tính dẫn xuất và constraints bổ sung.
-- `database/tests/`: mỗi người thêm kịch bản SQL kiểm tra phần mình.
-- `backend/`: M2 — Python 3.12, FastAPI, mysql-connector-python.
-- `frontend/`: M6 — React, Vite, JavaScript, Bootstrap 5; Node 22 >=22.12.
-- `docs/`: thiết kế, hợp đồng tích hợp và quyết định nhóm.
+- `database/schema/`: M2 — `CREATE TABLE`, `PK`/`FK`/`UNIQUE`/`CHECK` cho 20 bảng (`01_schema.sql`).
+- `database/seeds/`: M3 — dữ liệu mẫu cho toàn bộ 20 bảng, mỗi bảng ≥ 5 dòng (`01_seed.sql`).
+- `database/triggers/`: M4 — trigger nghiệp vụ SC15b (`m4_business_constraint.sql`) và thuộc tính dẫn xuất DA01 (`m4_application_count.sql`).
+- `database/procedures/`: M2 tìm kiếm (`m2_search_jobs.sql`), M3 CRUD (`m3_job_crud.sql`), M5 thống kê (`m5_application_report.sql`), M6 chuyển trạng thái (`m6_change_job_status.sql`).
+- `database/functions/`: M1 tỷ lệ accepted (`m1_candidate_acceptance_rate.sql`), M5 tính ngân sách (`m5_recruitment_budget.sql`).
+- `database/tests/`: kịch bản SQL/Python kiểm thử độc lập cho từng thành phần M1–M6.
+- `backend/`: M2 — Python 3.12, FastAPI, `mysql-connector-python`.
+- `frontend/`: M6 — React, Vite (JavaScript), Bootstrap 5; Node >= 22.12.
+- `docs/`: đề bài, báo cáo Assignment 1, hợp đồng tích hợp, từ điển dữ liệu, bảng quy tắc nghiệp vụ và quyết định thiết kế.
 
-## Bắt đầu
+## Bắt đầu nhanh với Database
 
 1. Sao chép `.env.example` thành `.env`, thay các giá trị mật khẩu mẫu.
 2. Chạy `docker compose up -d db` tại thư mục gốc, sau khi cài Docker Desktop.
-3. Chạy `docker compose ps` để xem trạng thái database.
-4. Kết nối DBeaver: host `127.0.0.1`, port `3306`, database `recruitment_db`,
-   user `recruitment_app`, mật khẩu theo `.env`.
-5. M2 triển khai schema từ bản Assignment 1 cuối cùng; chưa có schema tự nạp.
-6. M2 dựng backend theo `backend/README.md`; M6 dựng frontend theo `frontend/README.md`.
+3. Chạy `docker compose ps` để kiểm tra trạng thái MySQL 8.4 (`healthy`).
+4. Kết nối bằng DBeaver hoặc `mysql` client (host `127.0.0.1`, port `3306`, database `recruitment_db`, user `recruitment_app` hoặc `root` khi cài function/trigger nếu bật binary log).
+5. Nạp SQL và chạy kiểm thử theo thứ tự chuẩn trong [database/README.md](database/README.md).
 
-Compose hiện chỉ chạy MySQL. Backend và frontend chưa được khởi tạo mã nguồn.
+## Quy ước môi trường & làm việc nhóm
 
-## Quy ước môi trường
-
-- Mỗi thành viên chạy database riêng, dùng cùng script trong Git.
-- Database đề xuất: MySQL 8.4, InnoDB, utf8mb4.
-- `mysql:8.4` là tag khởi đầu; M2 kiểm chứng rồi khóa bản vá hoặc digest cụ thể.
-- M2/M6 khóa dependencies backend/frontend sau khi dựng thành công.
+- Database: MySQL 8.4, InnoDB, `utf8mb4`.
 - Không commit `.env`, mật khẩu thật, `.venv`, `node_modules`, dữ liệu Docker.
-- Volume giữ dữ liệu qua các lần restart. `docker compose down` dừng dịch vụ;
-  tùy chọn `-v` sẽ xóa cả volume database, chỉ dùng khi chủ động reset.
+- Volume giữ dữ liệu qua các lần restart; chỉ dùng `docker compose down -v` khi chủ động reset database từ đầu.
+- Frontend gọi API; backend gọi stored procedure/function trong database và quản lý `COMMIT`/`ROLLBACK`.
+- Nghiệp vụ SQL theo đề phải được thực hiện ở tầng database (`CHECK`, trigger, stored procedure, function).
 
-## SQL và tích hợp
+## Chạy web CRUD mục 3.1
 
-Các file SQL hiện chỉ là nơi giữ chỗ. M2 ghi thứ tự chạy chính xác vào
-`database/README.md` sau khi xác định phụ thuộc schema/routines/triggers/seed.
-Không tự động nạp seed trước khi thống nhất cách khởi tạo cột dẫn xuất.
+Cần Docker Desktop, Python 3.12 và Node.js từ 22.12. Chạy ở thư mục gốc sau khi giải nén.
 
-Frontend gọi API; backend gọi procedure/function và quản lý commit/rollback.
-Nghiệp vụ SQL theo đề phải được thực hiện ở database.
+### 1. Chuẩn bị database
 
-## Làm việc nhóm
+Tạo `.env` từ `.env.example` nếu chưa có. Đặt `DB_PASSWORD` trùng với
+`MYSQL_PASSWORD` và `DB_PORT` trùng với `MYSQL_PORT`.
 
-Mỗi người làm branch riêng, procedure/function có file riêng. Thay đổi schema
-qua M2; thay đổi seed qua M3. Mỗi người tự viết tài liệu và kiểm thử phần mình.
-M1 theo dõi, review và ghi nhận quyết định sau phản hồi của người liên quan.
+```bash
+docker compose up -d --wait db
+```
+
+Với một **database mới, rỗng**, nạp schema, seed, trigger và các procedure CRUD.
+Script schema có lệnh `DROP TABLE`. Nếu database hiện có đã nạp đúng schema
+và các procedure CRUD, bỏ qua khối nạp này.
+
+```bash
+dbsql() {
+  docker compose exec -T db sh -c \
+    'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
+}
+
+dbsql < database/schema/01_schema.sql &&
+dbsql < database/triggers/m2_job_category_no_self_parent.sql &&
+dbsql < database/seeds/01_seed.sql &&
+dbsql < database/triggers/m4_application_count.sql &&
+dbsql < database/triggers/m4_business_constraint.sql &&
+dbsql < database/procedures/m3_job_crud.sql
+```
+
+Xem [database/README.md](database/README.md) để cài các routine còn lại của Phần 2.
+
+### 2. Chạy API và website
+
+Terminal thứ nhất, từ thư mục gốc:
+
+```bash
+cd backend
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --reload
+```
+
+Terminal thứ hai, từ thư mục gốc:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Mở [website](http://localhost:5173). Kiểm tra kết nối tại
+[API health](http://localhost:8000/api/health/db). Swagger UI ở
+[API docs](http://localhost:8000/docs).
+
+### 3. Demo
+
+1. Chọn **New posting**. Chọn công ty Lotus Digital, một campaign của công ty,
+   một specialisation và điền các trường bắt buộc. Hạn ứng tuyển phải sau ngày
+   đăng. Chọn **Create posting** và ghi lại ID mới.
+2. Tải lại trang, nhập ID đã ghi và chọn **Load**. Sửa tiêu đề, bấm **Save
+   changes**, rồi chọn **Load** để thấy thay đổi đã được lưu.
+3. Chọn **Delete posting** và xác nhận. Thử tải lại ID vừa xóa để kiểm tra.
+4. Tải tin seed **701**, thử xóa và xem lỗi nghiệp vụ do tin đã có hồ sơ ứng
+   tuyển. Bản ghi vẫn hiển thị.
+
+Form hiện dùng ID để mở một bản ghi. Mục 3.2 có thể mở lại màn hình CRUD từ
+danh sách của `sp_search_job_postings` và dùng lại [các endpoint CRUD](backend/README.md).

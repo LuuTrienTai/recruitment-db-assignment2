@@ -1,4 +1,6 @@
 -- Job-posting CRUD. The initial status is open; status transitions belong to M6.
+USE recruitment_db;
+
 DELIMITER $$
 
 DROP PROCEDURE IF EXISTS sp_validate_job_posting$$
@@ -66,13 +68,13 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Job requirements are required.';
     END IF;
     IF p_posted_date IS NULL OR p_application_deadline IS NULL
-       OR p_application_deadline < p_posted_date THEN
+       OR p_application_deadline <= p_posted_date THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Application deadline cannot be earlier than the posted date.';
+            SET MESSAGE_TEXT = 'Application deadline must be later than the posted date.';
     END IF;
-    IF (p_min_salary IS NOT NULL AND p_min_salary < 0)
-       OR (p_max_salary IS NOT NULL AND p_max_salary < 0) THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Salary values cannot be negative.';
+    IF (p_min_salary IS NOT NULL AND p_min_salary <= 0)
+       OR (p_max_salary IS NOT NULL AND p_max_salary <= 0) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Salary values must be positive.';
     END IF;
     IF p_min_salary IS NOT NULL AND p_max_salary IS NOT NULL
        AND p_min_salary > p_max_salary THEN

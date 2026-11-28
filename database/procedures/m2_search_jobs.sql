@@ -1,3 +1,5 @@
+USE recruitment_db;
+
 DELIMITER $$
 DROP PROCEDURE IF EXISTS sp_search_job_postings$$
 CREATE PROCEDURE sp_search_job_postings(
@@ -15,7 +17,19 @@ BEGIN
         AND p_sort_by NOT IN ('title', 'posted_date', 'application_deadline', 'min_salary', 'max_salary') THEN SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Sort column must be title, posted_date, application_deadline, min_salary, or max_salary.';
     END IF;
-    SELECT jp.job_posting_id AS job_posting_id, jp.title AS title, c.name AS company_name, jc.name AS category_name, jp.job_status AS job_status
+    SELECT
+        jp.job_posting_id AS job_posting_id,
+        jp.title AS title,
+        jp.company_id AS company_id,
+        c.name AS company_name,
+        jp.category_id AS category_id,
+        jc.name AS category_name,
+        jp.job_status AS job_status,
+        jp.min_salary AS min_salary,
+        jp.max_salary AS max_salary,
+        jp.posted_date AS posted_date,
+        jp.application_deadline AS application_deadline,
+        jp.application_count AS application_count
     FROM job_posting jp
     JOIN company c ON c.company_id  = jp.company_id
     JOIN job_category jc ON jc.category_id = jp.category_id
@@ -32,9 +46,3 @@ BEGIN
         jp.job_posting_id DESC;
 END$$
 DELIMITER ;
-
--- CALL sp_search_job_postings('dev', NULL, NULL, NULL, NULL);      
--- CALL sp_search_job_postings(NULL, NULL, NULL, 'open', NULL);    
--- CALL sp_search_job_postings(NULL, NULL, NULL, NULL, 'title');    
--- CALL sp_search_job_postings(NULL, NULL, NULL, 'abc', NULL);   
--- CALL sp_search_job_postings(NULL, NULL, NULL, NULL, 'xyz');    

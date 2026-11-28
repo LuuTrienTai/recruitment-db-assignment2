@@ -21,7 +21,7 @@
 --   p_from_date     DATE          NULL = không giới hạn ngày bắt đầu
 --                                 khác NULL: submission_time >= p_from_date 00:00:00
 --   p_to_date       DATE          NULL = không giới hạn ngày kết thúc
---                                 khác NULL: submission_time < (p_to_date + 1 ngày)
+--                                 khác NULL: DATE(submission_time) <= p_to_date
 --
 -- Lỗi nghiệp vụ (SQLSTATE '45000'):
 --   - p_candidate_id IS NULL
@@ -33,6 +33,7 @@
 -- =============================================================================
 
 USE recruitment_db;
+SET NAMES utf8mb4;
 
 DROP FUNCTION IF EXISTS fn_candidate_acceptance_rate;
 
@@ -56,7 +57,7 @@ BEGIN
         FROM application AS a
         WHERE a.candidate_id = p_candidate_id
           AND (p_from_date IS NULL OR a.submission_time >= TIMESTAMP(p_from_date))
-          AND (p_to_date   IS NULL OR a.submission_time <  TIMESTAMP(DATE_ADD(p_to_date, INTERVAL 1 DAY)));
+          AND (p_to_date   IS NULL OR DATE(a.submission_time) <= p_to_date);
 
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = TRUE;
 

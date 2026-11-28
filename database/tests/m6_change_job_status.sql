@@ -1,5 +1,7 @@
 -- Run on the seeded database after installing m6_change_job_status.sql.
 -- Fixture changes are rolled back. The final result should report PASS.
+USE recruitment_db;
+
 DELIMITER $$
 
 DROP PROCEDURE IF EXISTS test_m6_expect_error$$
